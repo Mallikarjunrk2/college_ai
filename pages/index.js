@@ -15,11 +15,12 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
-      });
+      const res = await fetch("/api/college", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ question: input }),   // we only send the question text
+});
+
 
       if (!res.ok) {
         let errMsg = `Server error (${res.status})`;
