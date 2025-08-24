@@ -1,5 +1,4 @@
-// pages/api/college.js
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,50 +7,67 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const { question } = req.body;
+  const { messages } = req.body;
+  const userMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
 
   try {
-    let answer = "";
+    // --- Case 1: user asks about placements ---
+    if (userMessage.includes("placement")) {
+      let yearMatch = userMessage.match(/20\d{2}-\d{2}/); // e.g. 2024-25
+      let year = yearMatch ? yearMatch[0] : null;
 
-    // Example: placement queries
-    if (question.toLowerCase().includes("placement")) {
-      const { data, error } = await supabase
-        .from("placements")
-        .select("*");
+      let query = supabase.from("placements").select("*");
 
+      if (year) {
+        query = query.eq("year", year);
+      } else {
+        // If year not given, take latest year
+        const { data: latestYear } = await supabase
+          .from("placements")
+          .select("year")
+          .order("year", { ascending: false })
+          .limit(1);
+        if (latestYear?.length) {
+          year = latestYear[0].year;
+          query = query.eq("year", year);
+        }
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
-      if (data.length > 0) {
-        answer = `Placements for ${data[0].year}: \n\n` +
-          data.map(p => 
-            `${p.company_name} - ${p.offers} offers, Package: ${p.salary_lpa} LPA`
-          ).join("\n");
+      if (!data || data.length === 0) {
+        return res.status(200).json({ reply: "No placement data found 😅" });
       }
+
+      const reply = `Placements for ${year}: ` + data.map(r =>
+        `${r.name_of_the_company} - ${r.number_of_offers} offers, Package: ${r.package} LPA`
+      ).join("; ");
+
+      return res.status(200).json({ reply });
     }
 
-    // If no placement match → fallback to Gemini
-    if (!answer) {
-      const geminiRes = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + process.env.GEMINI_API_KEY,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: question }] }]
-          })
-        }
-      );
-      const geminiData = await geminiRes.json();
-      answer = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn’t find an answer 😅";
-    }
+    // --- Case 2: fallback to Gemini ---
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userMessage }] }]
+        }),
+      }
+    );
 
-    res.status(200).json({ reply: answer });
+    const data = await response.json();
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn’t generate a reply 😅";
 
+    res.status(200).json({ reply });
   } catch (err) {
-    console.error("college.js error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("College API error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 }
