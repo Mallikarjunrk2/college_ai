@@ -1,47 +1,46 @@
--- =============================================
--- HSIT College Master SQL File
 -- database/college_data.sql
--- =============================================
+-- SQLite-ready SQL for HSIT (single-file)
+-- Contains: college_info, departments (CSE only), faculty_list (CSE), curriculum (CSE sem1-8), college_faq
 
--- CLEAN RESET (optional)
+PRAGMA foreign_keys = OFF;
+BEGIN TRANSACTION;
+
+-- Drop if exists (safe to re-run in SQLite)
 DROP TABLE IF EXISTS college_faq;
 DROP TABLE IF EXISTS curriculum;
 DROP TABLE IF EXISTS faculty_list;
 DROP TABLE IF EXISTS departments;
 DROP TABLE IF EXISTS college_info;
 
--- =============================================
--- 1) COLLEGE BASIC INFORMATION
--- =============================================
+-- 1) College information
 CREATE TABLE college_info (
-  id bigserial PRIMARY KEY,
-  name text NOT NULL,
-  short_name text,
-  established_year int,
-  affiliation text,
-  approved_by text,
-  type text,
-  campus_area text,
-  address text,
-  city text,
-  taluk text,
-  district text,
-  state text,
-  country text,
-  pincode text,
-  phone text,
-  email text,
-  website text,
-  notes text,
-  created_at timestamptz DEFAULT now()
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  short_name TEXT,
+  established_year INTEGER,
+  affiliation TEXT,
+  approved_by TEXT,
+  type TEXT,
+  campus_area TEXT,
+  address TEXT,
+  city TEXT,
+  taluk TEXT,
+  district TEXT,
+  state TEXT,
+  country TEXT,
+  pincode TEXT,
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT (datetime('now'))
 );
 
 INSERT INTO college_info (
   name, short_name, established_year, affiliation, approved_by, type,
   campus_area, address, city, taluk, district, state, country, pincode,
   phone, email, website, notes
-)
-VALUES (
+) VALUES (
   'Hirasugar Institute of Technology',
   'HSIT',
   1996,
@@ -59,92 +58,129 @@ VALUES (
   '08333-278887',
   'principal@hsit.ac.in',
   'https://hsit.ac.in',
-  'HSIT is located in Nidasoshi, Belagavi District, Karnataka.'
+  'HSIT (aka HIT) located in Nidasoshi, Hukkeri taluk, Belagavi district'
 );
 
--- =============================================
--- 2) DEPARTMENTS / BRANCHES
--- =============================================
+-- 2) Departments (we only add CSE now)
 CREATE TABLE departments (
-  id bigserial PRIMARY KEY,
-  name text NOT NULL UNIQUE,
-  short_name text,
-  created_at timestamptz DEFAULT now()
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  short_name TEXT,
+  created_at DATETIME DEFAULT (datetime('now'))
 );
 
 INSERT INTO departments (name, short_name) VALUES
-('Computer Science and Engineering', 'CSE'),
-('Electronics & Communication Engineering', 'ECE'),
-('Mechanical Engineering', 'ME'),
-('Civil Engineering', 'CE'),
-('Electrical & Electronics Engineering', 'EEE');
+('Computer Science and Engineering', 'CSE');
 
--- =============================================
--- 3) FACULTY TABLE
--- (faculty for each branch will be added via separate files)
--- =============================================
+-- 3) Faculty list (CSE)
 CREATE TABLE faculty_list (
-  id bigserial PRIMARY KEY,
-  name text NOT NULL,
-  designation text,
-  department text,
-  specialization text,
-  email_official text,
-  email_other text,
-  mobile text,
-  address text,
-  qualifications text,
-  courses_taught text,
-  profile_pdf text,
-  notes text,
-  created_at timestamptz DEFAULT now()
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  designation TEXT,
+  department TEXT,
+  department_id INTEGER,
+  specialization TEXT,
+  email_official TEXT,
+  email_other TEXT,
+  mobile TEXT,
+  address TEXT,
+  qualifications TEXT,
+  courses_taught TEXT,
+  profile_pdf TEXT,
+  notes TEXT,
+  created_at DATETIME DEFAULT (datetime('now')),
+  FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
 );
 
--- NOTE: Faculty rows will come from:
---    database/cse_data.sql
---    database/mech_data.sql
---    database/ece_data.sql
---    database/ce_data.sql
---    database/eee_data.sql
-
--- =============================================
--- 4) CURRICULUM TABLE (4 Years → 8 Semesters)
--- =============================================
-CREATE TABLE curriculum (
-  id bigserial PRIMARY KEY,
-  branch_short text,
-  year_number int,
-  semester_number int,
-  subject_code text,
-  subject_name text,
-  credits numeric,
-  elective boolean DEFAULT false,
-  notes text,
-  created_at timestamptz DEFAULT now()
-);
-
--- Insert academic structure (empty subjects)
-INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits)
+-- Insert CSE faculty rows (parsed from your uploaded PDFs)
+INSERT INTO faculty_list (name, designation, department, department_id, specialization, email_official, email_other, mobile, address, qualifications, courses_taught, profile_pdf, notes)
 VALUES
-('CSE', 1, 1, NULL, 'Semester 1 Subjects TBD', NULL),
-('CSE', 1, 2, NULL, 'Semester 2 Subjects TBD', NULL),
-('CSE', 2, 3, NULL, 'Semester 3 Subjects TBD', NULL),
-('CSE', 2, 4, NULL, 'Semester 4 Subjects TBD', NULL),
-('CSE', 3, 5, NULL, 'Semester 5 Subjects TBD', NULL),
-('CSE', 3, 6, NULL, 'Semester 6 Subjects TBD', NULL),
-('CSE', 4, 7, NULL, 'Semester 7 Subjects TBD', NULL),
-('CSE', 4, 8, NULL, 'Semester 8 Subjects TBD', NULL);
+('Prof. Mallikarjun G. Ganachari', 'Assistant Professor', 'Computer Science and Engineering', 1, 'Industrial Electronics & Image Processing', 'mgganachari.cse@hsit.ac.in', '', '8904879471', 'Amminabhavi, Hukkeri, Belagavi, Karnataka - 591236', 'Ph.D (Pursuing); M.Tech 2013; B.E. 2009', 'Basic Electronics; Digital Electronics; Digital Image Processing', '/mnt/data/MGG25.pdf', 'Admin roles: Innovation Cell, Technical Club; research interests: Image Processing.'),
+('Prof. Sapna B Patil', 'Assistant Professor', 'Computer Science and Engineering', 1, 'Digital Electronics; VLSI Design and Embedded System', 'sapna.cse@hsit.ac.in', '', '9740875627', 'Subhash Road, Patil Galli, Sankeshwar, Hukkeri, Belagavi - 591313', 'M.Tech 2018; B.E. 2016', 'Cryptography; Info Theory; Operating Systems', '/mnt/data/SBP125.pdf', 'Published papers (2023, 2025) and organized workshops.'),
+('Mrs. Aruna Anil Daptardar', 'Assistant Professor', 'Computer Science and Engineering', 1, 'Computer Science and Engineering', 'arunadaptardar.cse@hsit.ac.in', '', '9620851002', '74, Math Galli, Sankeshwar, Hukkeri, Belagavi - 591313', 'M.Tech 2011; B.E 2003', 'Operating Systems; Java; Data Structures', '/mnt/data/AAD25.pdf', 'Has long teaching experience; many FDPs.'),
+('Dr. K. B. Manwade', 'Professor', 'Computer Science and Engineering', 1, 'High Performance Computing; CSE', 'kbmanwade.cse@hsit.ac.in', '', '8412968254', 'Staff Quarters, HIT Nidasoshi, Hukkeri, Belagavi - 591236', 'Ph.D 2019; M.Tech 2008; B.E 2004', 'Parallel algorithms; HPC; Data Mining', '/mnt/data/kbm1.pdf', 'HOD CSE, many publications and administrative roles.'),
+('Dr. S. V. Manjaragi', 'Associate Professor', 'Computer Science and Engineering', 1, 'Wireless Networks; CSE', 'svmanjaragi.cse@hsit.ac.in', 'shiva.vm@gmail.com', '+919986658309', '1466, Laxmnagar, A/P: Ammanagi, Hukkeri, Belagavi - 591236', 'Ph.D 2024; M.Tech 2010; B.E 2002', 'Machine Learning; Cloud Computing; Graph Theory', '/mnt/data/SVM25.pdf', 'IT Incharge; HOD; many publications and FDPs.');
 
--- (Other branch semesters can be added later using separate files)
+-- 4) Curriculum table and CSE semester entries (example subjects)
+CREATE TABLE curriculum (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  branch_short TEXT,
+  year_number INTEGER,
+  semester_number INTEGER,
+  subject_code TEXT,
+  subject_name TEXT,
+  credits REAL,
+  elective INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at DATETIME DEFAULT (datetime('now'))
+);
 
--- =============================================
--- 5) FAQ TABLE (Optional)
--- =============================================
+-- Semester 1 (CSE) - typical example subjects
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 1, 1, 'CSE101', 'Engineering Mathematics I', 4),
+('CSE', 1, 1, 'CSE102', 'Engineering Physics', 3),
+('CSE', 1, 1, 'CSE103', 'Engineering Chemistry', 3),
+('CSE', 1, 1, 'CSE104', 'Basic Electrical & Electronics Engineering', 3),
+('CSE', 1, 1, 'CSE105', 'Programming for Problem Solving (C)', 3),
+('CSE', 1, 1, 'CSE106', 'Engineering Graphics', 2),
+('CSE', 1, 1, 'CSE107', 'Workshop Practice', 1);
+
+-- Semester 2 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 1, 2, 'CSE108', 'Engineering Mathematics II', 4),
+('CSE', 1, 2, 'CSE109', 'Data Structures using C', 4),
+('CSE', 1, 2, 'CSE110', 'Digital Logic Design', 3),
+('CSE', 1, 2, 'CSE111', 'Object Oriented Programming', 3),
+('CSE', 1, 2, 'CSE112', 'Communicative English / Professional Communication', 2);
+
+-- Semester 3 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 2, 3, 'CSE201', 'Discrete Mathematics', 4),
+('CSE', 2, 3, 'CSE202', 'Computer Organization and Architecture', 3),
+('CSE', 2, 3, 'CSE203', 'Data Structures and Algorithms', 4),
+('CSE', 2, 3, 'CSE204', 'Database Management Systems', 3),
+('CSE', 2, 3, 'CSE205', 'Operating Systems (Intro)', 3);
+
+-- Semester 4 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 2, 4, 'CSE206', 'Design and Analysis of Algorithms', 4),
+('CSE', 2, 4, 'CSE207', 'Computer Networks', 3),
+('CSE', 2, 4, 'CSE208', 'Software Engineering', 3),
+('CSE', 2, 4, 'CSE209', 'Formal Languages & Automata Theory', 3);
+
+-- Semester 5 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 3, 5, 'CSE301', 'Compiler Design', 3),
+('CSE', 3, 5, 'CSE302', 'Distributed Systems', 3),
+('CSE', 3, 5, 'CSE303', 'Web Technologies', 3),
+('CSE', 3, 5, 'CSE304', 'Database Systems (Advanced)', 3);
+
+-- Semester 6 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 3, 6, 'CSE305', 'Artificial Intelligence', 3),
+('CSE', 3, 6, 'CSE306', 'Machine Learning', 3),
+('CSE', 3, 6, 'CSE307', 'Software Project Lab', 2),
+('CSE', 3, 6, 'CSE308', 'Elective I', 3);
+
+-- Semester 7 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 4, 7, 'CSE401', 'Cloud Computing', 3),
+('CSE', 4, 7, 'CSE402', 'Information Security', 3),
+('CSE', 4, 7, 'CSE403', 'Elective II', 3),
+('CSE', 4, 7, 'CSE404', 'Project Phase I', 4);
+
+-- Semester 8 (CSE)
+INSERT INTO curriculum (branch_short, year_number, semester_number, subject_code, subject_name, credits) VALUES
+('CSE', 4, 8, 'CSE405', 'Project Phase II', 6),
+('CSE', 4, 8, 'CSE406', 'Seminar & Technical Presentation', 2),
+('CSE', 4, 8, 'CSE407', 'Elective III', 3);
+
+-- 5) FAQ (small examples)
 CREATE TABLE college_faq (
-  id bigserial PRIMARY KEY,
-  question text NOT NULL,
-  answer text NOT NULL,
-  created_at timestamptz DEFAULT now()
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  created_at DATETIME DEFAULT (datetime('now'))
 );
 
 INSERT INTO college_faq (question, answer) VALUES
@@ -152,6 +188,4 @@ INSERT INTO college_faq (question, answer) VALUES
 ('Where is HSIT located?', 'HSIT is located in Nidasoshi, Belagavi District, Karnataka.'),
 ('What is HSIT affiliated to?', 'HSIT is affiliated to Visvesvaraya Technological University (VTU), Belagavi.');
 
--- =============================================
--- END OF FILE
--- =============================================
+COMMIT;
