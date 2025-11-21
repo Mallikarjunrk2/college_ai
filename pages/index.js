@@ -1,5 +1,71 @@
 import { useState, useRef, useEffect } from "react";
 
+/**
+ * Lightweight safe Markdown -> HTML converter (no external deps).
+ * - Escapes HTML first to avoid XSS.
+ * - Supports: headings (# ..), bold **text**, italic *text*, inline code `code`,
+ *   blockquotes (lines starting with >), unordered lists (- or *), links [text](url),
+ *   and preserves paragraphs/line breaks.
+ */
+function escapeHtml(str = "") {
+  return str
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function renderMarkdownToHtml(md = "") {
+  // Normalize line endings
+  const text = String(md || "").replace(/\r\n/g, "\n");
+
+  // Escape raw HTML first
+  let out = escapeHtml(text);
+
+  // Inline code: `code`
+  out = out.replace(/`([^`]+)`/g, (_, code) => `<code>${code}</code>`);
+
+  // Bold: **text**
+  out = out.replace(/\*\*(.+?)\*\*/g, (_, b) => `<strong>${b}</strong>`);
+
+  // Italic: *text* (avoid conflicting with bold which is already handled)
+  out = out.replace(/(^|[^*])\*([^*][^*]*?)\*([^*]|$)/g, (_, a, b, c) => `${a}<em>${b}</em>${c}`);
+
+  // Links: [text](url)
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t, u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`);
+
+  // Headings: ###, ##, #
+  out = out.replace(/^###\s*(.+)$/gm, "<h3>$1</h3>");
+  out = out.replace(/^##\s*(.+)$/gm, "<h2>$1</h2>");
+  out = out.replace(/^#\s*(.+)$/gm, "<h1>$1</h1>");
+
+  // Blockquote lines: starting with >
+  out = out.replace(/^\>\s?(.*)$/gm, "<blockquote>$1</blockquote>");
+
+  // Unordered lists: lines starting with - or *
+  // Convert consecutive list lines into <ul>...</ul>
+  out = out.replace(/(^((\s*[-*]\s+.+\n?)+))/gm, (match) => {
+    const items = match
+      .trim()
+      .split(/\n/)
+      .map((r) => r.replace(/^\s*[-*]\s+/, ""))
+      .map((li) => `<li>${li}</li>`)
+      .join("");
+    return `<ul>${items}</ul>\n`;
+  });
+
+  // Paragraphs: split by two newlines; preserve single newlines as <br/>
+  // First, convert two-or-more newlines to paragraph separators
+  const paras = out.split(/\n{2,}/).map((p) => {
+    // turn remaining single newlines into <br/>
+    const withBreaks = p.replace(/\n/g, "<br/>");
+    return `<p>${withBreaks}</p>`;
+  });
+
+  return paras.join("\n");
+}
+
 export default function Home() {
   const [messages, setMessages] = useState([
     {
@@ -105,8 +171,14 @@ export default function Home() {
             const isUser = m.role === "user";
             return (
               <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] px-4 py-3 rounded-lg ${isUser ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-900"}`}>
-                  <div className="text-sm break-words">{m.content}</div>
+                <div
+                  className={`max-w-[80%] px-4 py-3 rounded-lg ${isUser ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-900"}`}
+                >
+                  {/* Render Markdown -> HTML safely */}
+                  <div
+                    className="text-sm"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(m.content) }}
+                  />
                   <div className="text-[10px] mt-1 text-opacity-60 text-white/80">
                     {isUser ? "You" : "AI"}
                   </div>
