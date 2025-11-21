@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { 
-  role: "assistant", 
-  content: "Hello! 👋 This is CollegeGPT — developed by HSIT College students. You can ask anything related to our college such as faculty details, fees, admission process, placements, facilities, and even general questions!" 
-},
-
+    {
+      role: "assistant",
+      content:
+        "Hello! 👋 This is CollegeGPT — developed by HSIT College students. You can ask anything related to our college such as faculty details, fees, admission process, placements, facilities, and even general questions!"
+    }
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
@@ -17,36 +18,54 @@ export default function Home() {
 
   async function sendMessage() {
     if (!input.trim()) return;
+
     const question = input;
     const newMessages = [...messages, { role: "user", content: question }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
 
+    // Custom greeting response (handle simple "hi/hello" locally)
+    const greetings = ["hi", "hello", "hey", "hii", "helo", "hai"];
+    if (greetings.includes(question.toLowerCase().trim())) {
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content:
+            "Hello! 👋 This is CollegeGPT — created by HSIT College students. I can help you with anything related to the college: faculty, fees, admissions, placements, campus details, and general questions. Ask me anything!"
+        }
+      ]);
+      setLoading(false);
+      return;
+    }
+
     try {
       // 1) Try college-specific API (Supabase-backed)
       const r1 = await fetch("/api/college", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question })
       });
 
       let collegeReply = "";
       try {
         const a1 = await r1.json();
         collegeReply = a1?.reply || (a1?.ok && a1?.answer) || "";
-      } catch {}
+      } catch {
+        // ignore parse issues; fallback below
+      }
 
       if (collegeReply) {
         setMessages([...newMessages, { role: "assistant", content: collegeReply }]);
         return;
       }
 
-      // 2) Fallback to general chat (Gemini/OpenAI) via /api/chat
+      // 2) Fallback to /api/chat (Gemini/OpenAI)
       const r2 = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages })
       });
 
       if (!r2.ok) {
@@ -87,7 +106,7 @@ export default function Home() {
             return (
               <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[80%] px-4 py-3 rounded-lg ${isUser ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-900"}`}>
-                  <div className="text-sm">{m.content}</div>
+                  <div className="text-sm break-words">{m.content}</div>
                   <div className="text-[10px] mt-1 text-opacity-60 text-white/80">
                     {isUser ? "You" : "AI"}
                   </div>
