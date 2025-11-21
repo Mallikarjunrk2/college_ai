@@ -2,8 +2,11 @@ import { useState, useRef, useEffect } from "react";
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hi 👋 I’m your College AI. Ask me anything!" },
-  ]);
+    { 
+  role: "assistant", 
+  content: "Hello! 👋 This is CollegeGPT — developed by HSIT College students. You can ask anything related to our college such as faculty details, fees, admission process, placements, facilities, and even general questions!" 
+},
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
