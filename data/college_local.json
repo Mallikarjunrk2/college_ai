@@ -1,0 +1,137 @@
+{
+  "college": {
+    "id": 1,
+    "name": "Hirasugar Institute of Technology",
+    "short_name": "HSIT",
+    "address": "Nidasoshi, Belagavi District, Karnataka, India",
+    "phone": "08333-278887",
+    "email": "principal@hsit.ac.in",
+    "website": "hsit.ac.in",
+    "established": "1996",
+    "affiliation": "Visvesvaraya Technological University (VTU), Belagavi",
+    "approved_by": "AICTE, New Delhi",
+    "type": "Private Engineering College"
+  },
+
+  "branches": [
+    { "id": 1, "code": "CSE", "name": "Computer Science and Engineering" },
+    { "id": 2, "code": "ECE", "name": "Electronics & Communication Engineering" },
+    { "id": 3, "code": "ME", "name": "Mechanical Engineering" },
+    { "id": 4, "code": "CE", "name": "Civil Engineering" },
+    { "id": 5, "code": "EEE", "name": "Electrical & Electronics Engineering" }
+  ],
+
+  "faculty": [
+    {
+      "id": 1,
+      "name": "Dr. S. V. Manjaragi",
+      "designation": "Principal",
+      "department": "Computer Science and Engineering",
+      "specialization": "Wireless Networks; CSE",
+      "email_official": "svmanjaragi.cse@hsit.ac.in",
+      "mobile": "998986658309",
+      "address": "Laxmnagar, A/P: Ammatti",
+      "courses_taught": "Machine Learning; Cloud Computing; Graph Theory",
+      "profile_pdf": "/mnt/data/SVM25.pdf",
+      "notes": "IT Incharge; HOD; many publications and FDPs."
+    },
+    {
+      "id": 2,
+      "name": "Ms Megha Ganachari",
+      "designation": "Assistant Professor",
+      "department": "Computer Science and Engineering",
+      "specialization": "Image Processing; AI",
+      "email_official": "mgganachari.cse@hsit.ac.in",
+      "mobile": "8904879471",
+      "address": "Angol, Belagavi – 591236",
+      "courses_taught": "Basic Electronics; Digital Electronics; Python",
+      "profile_pdf": "/mnt/data/MGG25.pdf",
+      "notes": "Admin roles: Innovation Cell, Technical clubs."
+    },
+    {
+      "id": 3,
+      "name": "Ms Sapna J",
+      "designation": "Assistant Professor",
+      "department": "Computer Science and Engineering",
+      "specialization": "Design Thinking; HCI",
+      "email_official": "sapna.cse@hsit.ac.in",
+      "mobile": "9740875627",
+      "address": "Sulebhavi, Belagavi",
+      "courses_taught": "Cryptography; Info Theory; Operating Systems",
+      "profile_pdf": "/mnt/data/SBP125.pdf",
+      "notes": "Published papers (2023, 2025)."
+    },
+    {
+      "id": 4,
+      "name": "Ms Aruna Daptardar",
+      "designation": "Assistant Professor",
+      "department": "Computer Science and Engineering",
+      "specialization": "Engineering Design; Computing",
+      "email_official": "arunadaptardar.cse@hsit.ac.in",
+      "mobile": "9620851002",
+      "address": "743, Belagavi South",
+      "courses_taught": "Operating Systems; Java; Data Structures",
+      "profile_pdf": "/mnt/data/AAD25.pdf",
+      "notes": "Has long teaching experience; Projects mentor."
+    },
+    {
+      "id": 5,
+      "name": "Ms Kavita B Manwade",
+      "designation": "Assistant Professor",
+      "department": "Computer Science and Engineering",
+      "specialization": "Parallel Computing; HPC",
+      "email_official": "kbmanwade.cse@hsit.ac.in",
+      "mobile": "8412968254",
+      "address": "Street 34, Belagavi",
+      "courses_taught": "Parallel algorithms; HPC; Data Analytics",
+      "profile_pdf": "/mnt/data/kbm1.pdf",
+      "notes": "HOD CSE; many publications and conferences."
+    }
+  ],
+
+  "placements": [
+    {
+      "id": 1,
+      "year": "2024-25",
+      "company_name": "Cognizant",
+      "offers": 2,
+      "salary_lpa": 4.01,
+      "branch": "CSE"
+    },
+    {
+      "id": 2,
+      "year": "2024-25",
+      "company_name": "Infosys",
+      "offers": 2,
+      "salary_lpa": 3.6,
+      "branch": "CSE"
+    },
+    {
+      "id": 3,
+      "year": "2024-25",
+      "company_name": "Deloitte India Pvt Ltd",
+      "offers": 1,
+      "salary_lpa": 4.0,
+      "branch": "CSE"
+    }
+  ],
+
+  "curriculum": {
+    "CSE": {
+      "Semester 1": [
+        "Mathematics I",
+        "Engineering Physics",
+        "Programming in C"
+      ],
+      "Semester 2": [
+        "Mathematics II",
+        "Basic Electronics",
+        "Data Structures"
+      ]
+    }
+  },
+
+  "config": {
+    "last_updated": "2025-11-22"
+  }
+}
