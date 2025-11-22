@@ -177,13 +177,7 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="mt-3 flex gap-2 flex-wrap quick-chips">
-              {["CSE faculty list", "HSIT address", "placements 2024-25", "Manjaragi email"].map((c) => (
-                <button key={c} onClick={() => setInput(c)} className="px-3 py-1 rounded-full text-sm">
-                  {c}
-                </button>
-              ))}
-            </div>
+            
           </div>
         </div>
 
