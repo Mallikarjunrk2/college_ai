@@ -1,94 +1,140 @@
 /* styles/globals.css */
 
-/* Import a clean variable font (Inter) from Google Fonts quickly.
-   If you prefer to use a local font or different Google font, replace this import.
-*/
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+/* Inter font (clean modern UI look) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* CSS variables for brand */
-:root{
-  --brand-500: #6d28d9;   /* indigo / purple */
-  --brand-600: #5b21b6;
-  --muted-600: #6b7280;
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --assistant-bubble: #eef2ff; /* very light indigo */
-  --assistant-text: #111827;
-  --user-bubble: #4f46e5; /* deep indigo */
-  --user-text: #fff;
-  --radius-lg: 18px;
+/* -------------------------------------------------- */
+/* BRAND VARIABLES — modify these to change the theme */
+/* -------------------------------------------------- */
+:root {
+  --brand-primary: #4f46e5;       /* deep indigo (user bubble) */
+  --brand-primary-dark: #4338ca;  /* slightly darker purple */
+  --assistant-bubble: #eef2ff;    /* light indigo bubble */
+  --assistant-text: #111827;      /* slate text */
+  --radius-chat: 16px;            /* bubble radius */
+  --radius-card: 20px;
+  --bg-light: #f9fafb;
 }
 
-/* Base typographic tweaks */
+/* -------------------------------------------------- */
+/* BASE PAGE SETTINGS */
+/* -------------------------------------------------- */
+
 html, body, #__next {
   height: 100%;
 }
+
 body {
-  @apply bg-gradient-to-b from-gray-50 to-gray-100;
-  margin: 0;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  color: #111;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #111827;
+
+  margin: 0;
+  padding: 0;
 }
 
-/* Small utilities for the chat card */
-.chat-card {
-  border-radius: var(--radius-lg);
-  background: var(--card);
-}
+/* -------------------------------------------------- */
+/* CHAT BUBBLES */
+/* -------------------------------------------------- */
 
-/* message bubble helpers */
+/* Assistant bubble */
 .msg-assistant {
   background: var(--assistant-bubble);
   color: var(--assistant-text);
-  border-radius: 14px;
+  border-radius: var(--radius-chat);
+  line-height: 1.45;
+  border: 1px solid rgba(99, 102, 241, 0.08);
 }
 
+/* User bubble */
 .msg-user {
-  background: var(--user-bubble);
-  color: var(--user-text);
-  border-radius: 14px;
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-radius: var(--radius-chat);
+  line-height: 1.45;
 }
 
-/* better word-wrap inside bubbles */
+/* Text wrap inside bubbles */
 .prose {
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
-/* subtle shadow for card */
-.card-shadow {
-  box-shadow: 0 10px 30px rgba(17,24,39,0.06);
+/* -------------------------------------------------- */
+/* INPUT + BUTTONS */
+/* -------------------------------------------------- */
+
+input {
+  transition: all 0.2s ease-in-out;
 }
 
-/* input focus */
-input:focus, textarea:focus {
+input:focus {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.08);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
 }
 
-/* scrollbar for the chat area */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
+/* Quick-chip buttons */
+.chip-button {
+  @apply text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 cursor-pointer;
+}
+
+/* -------------------------------------------------- */
+/* CARD & SHADOW STYLE */
+/* -------------------------------------------------- */
+.chat-card {
+  background: white;
+  border-radius: var(--radius-card);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+/* -------------------------------------------------- */
+/* SMOOTH SCROLLBAR */
+/* -------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
-  background: rgba(15,23,42,0.08);
-  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 20px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.12); }
-
-/* small chips */
-.chip {
-  @apply text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.2);
 }
 
-/* responsive tweaks */
+/* -------------------------------------------------- */
+/* MOBILE OPTIMIZATION */
+/* -------------------------------------------------- */
+
 @media (max-width: 640px) {
-  .chat-card { border-radius: 12px; }
-  .msg-assistant, .msg-user { border-radius: 12px; }
+  .msg-assistant,
+  .msg-user {
+    border-radius: 12px;
+  }
+  .chat-card {
+    border-radius: 16px;
+  }
+}
+
+/* -------------------------------------------------- */
+/* SMALL UTILITIES */
+/* -------------------------------------------------- */
+
+.fade-in {
+  animation: fadeIn 0.22s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
