@@ -1,140 +1,96 @@
-/* styles/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
 
-/* Inter font (clean modern UI look) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+:root{
+  --accent: #5b21b6;    /* indigo/violet */
+  --muted: #6b7280;
+  --surface: #ffffff;
+  --bg: #f7f7fb;
+  --card-shadow: 0 10px 30px rgba(16,24,40,0.06);
+}
 
+/* Tailwind base */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* -------------------------------------------------- */
-/* BRAND VARIABLES — modify these to change the theme */
-/* -------------------------------------------------- */
-:root {
-  --brand-primary: #4f46e5;       /* deep indigo (user bubble) */
-  --brand-primary-dark: #4338ca;  /* slightly darker purple */
-  --assistant-bubble: #eef2ff;    /* light indigo bubble */
-  --assistant-text: #111827;      /* slate text */
-  --radius-chat: 16px;            /* bubble radius */
-  --radius-card: 20px;
-  --bg-light: #f9fafb;
+/* apply font and background */
+html,body,#__next {
+  height:100%;
+  background: linear-gradient(180deg, #fbfbfe 0%, #f7f8fc 100%);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  color: #111827;
 }
 
-/* -------------------------------------------------- */
-/* BASE PAGE SETTINGS */
-/* -------------------------------------------------- */
-
-html, body, #__next {
-  height: 100%;
+/* card style used in the main layout */
+.app-card {
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(16,24,40,0.03);
 }
 
-body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
-  color: #111;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  margin: 0;
-  padding: 0;
-}
-
-/* -------------------------------------------------- */
-/* CHAT BUBBLES */
-/* -------------------------------------------------- */
-
-/* Assistant bubble */
-.msg-assistant {
-  background: var(--assistant-bubble);
-  color: var(--assistant-text);
-  border-radius: var(--radius-chat);
-  line-height: 1.45;
-  border: 1px solid rgba(99, 102, 241, 0.08);
-}
-
-/* User bubble */
-.msg-user {
-  background: var(--brand-primary);
-  color: #ffffff;
-  border-radius: var(--radius-chat);
-  line-height: 1.45;
-}
-
-/* Text wrap inside bubbles */
-.prose {
+/* message bubbles */
+.msg-bubble {
   word-break: break-word;
   white-space: pre-wrap;
 }
 
-/* -------------------------------------------------- */
-/* INPUT + BUTTONS */
-/* -------------------------------------------------- */
-
-input {
-  transition: all 0.2s ease-in-out;
+/* assistant bubble */
+.msg-assistant {
+  background: linear-gradient(180deg, #f3f4f6, #ffffff);
+  color: #111827;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
 }
 
-input:focus {
+/* user bubble */
+.msg-user {
+  background: linear-gradient(180deg, var(--accent), #4f46e5);
+  color: white;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(79,70,229,0.12);
+}
+
+/* input and send */
+.chat-input {
+  border-radius: 14px;
+  border: 1px solid rgba(16,24,40,0.06);
+  padding: 12px 16px;
+  background: #fff;
   outline: none;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
 }
 
-/* Quick-chip buttons */
-.chip-button {
-  @apply text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 cursor-pointer;
+/* rounded send button */
+.send-btn {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 20px rgba(79,70,229,0.14);
 }
 
-/* -------------------------------------------------- */
-/* CARD & SHADOW STYLE */
-/* -------------------------------------------------- */
-.chat-card {
-  background: white;
-  border-radius: var(--radius-card);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+/* tag chips */
+.chip {
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  border: 1px solid rgba(16,24,40,0.06);
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
-/* -------------------------------------------------- */
-/* SMOOTH SCROLLBAR */
-/* -------------------------------------------------- */
-::-webkit-scrollbar {
-  width: 10px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.12);
-  border-radius: 20px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.2);
-}
+/* make scrollbars subtle */
+*::-webkit-scrollbar { height:10px; width:10px; }
+*::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.06); border-radius:999px; }
+*::-webkit-scrollbar-track { background: transparent; }
 
-/* -------------------------------------------------- */
-/* MOBILE OPTIMIZATION */
-/* -------------------------------------------------- */
-
-@media (max-width: 640px) {
-  .msg-assistant,
-  .msg-user {
-    border-radius: 12px;
-  }
-  .chat-card {
-    border-radius: 16px;
-  }
-}
-
-/* -------------------------------------------------- */
-/* SMALL UTILITIES */
-/* -------------------------------------------------- */
-
-.fade-in {
-  animation: fadeIn 0.22s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(3px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* small responsive tweaks */
+@media (max-width:640px){
+  .app-card { border-radius: 14px; }
+  .msg-assistant, .msg-user { padding: 12px; font-size: 15px; }
 }
