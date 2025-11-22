@@ -1,131 +1,78 @@
-/* styles/globals.css
-   Modern, moody gradient UI + subtle card system.
-   Safe — purely CSS (Tailwind still used for utilities).
-*/
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
-
-:root{
-  --accent-500: #5b21b6;
-  --accent-600: #4f46e5;
-  --muted: #94a3b8;
-  --bg-dark: #0b1020;
-  --bg-1: #0f1724; /* deep */
-  --card: #0f1724;
-  --glass: rgba(255,255,255,0.04);
-  --glass-2: rgba(255,255,255,0.02);
-}
-
-/* Tailwind base */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Global base */
-html, body, #__next {
-  height: 100%;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(180deg, rgba(14,18,30,1) 0%, rgba(9,12,20,1) 100%);
-  color: #e6edf3;
+/* Custom tokens and small helpers */
+:root{
+  --bg-1: #0b1020;    /* deep navy */
+  --bg-2: #0f1724;    /* slightly lighter */
+  --glass: rgba(255,255,255,0.04);
+  --glass-2: rgba(255,255,255,0.02);
+  --accent: #6d28d9;  /* indigo/purple */
+  --accent-2: #4f46e5;
+  --muted: #9aa4b2;
+}
+
+/* base page look */
+html,body,#__next { height: 100%; }
+body {
   margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  color: #e6eef8;
 }
 
-/* App container card */
-.app-card {
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  box-shadow: 0 8px 40px rgba(2,6,23,0.6);
-  border: 1px solid rgba(255,255,255,0.03);
-  overflow: hidden;
+/* nice glass card used for header and chat container */
+.bg-glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.04);
 }
 
-/* Header: gradient badge */
-.brand-badge {
-  width:44px;
-  height:44px;
-  border-radius: 12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: linear-gradient(135deg, var(--accent-600), var(--accent-500));
-  box-shadow: 0 8px 24px rgba(79,70,229,0.14);
-  color: white;
-  font-weight:700;
+/* subtle inner card glow */
+.card-glow {
+  box-shadow: 0 10px 30px rgba(16,24,40,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
 }
 
-/* message area background subtle */
-.messages-area {
-  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+/* purple gradient button style */
+.btn-accent {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+  box-shadow: 0 6px 18px rgba(79,70,229,0.18);
 }
 
-/* assistant bubble (light glass) */
-.msg-assistant {
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-  color: #e6edf3;
-  border-radius: 14px;
-  padding: 14px;
-  word-break: break-word;
-  white-space: pre-wrap;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.5);
-  border: 1px solid rgba(255,255,255,0.02);
-}
-
-/* user bubble (vibrant) */
+/* message bubbles */
 .msg-user {
-  background: linear-gradient(180deg, var(--accent-600), var(--accent-500));
+  background: linear-gradient(180deg, #5b21b6, #4f46e5);
   color: white;
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 12px 28px rgba(79,70,229,0.18);
-  word-break: break-word;
 }
-
-/* input bar */
-.chat-input {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
-  border-radius: 14px;
-  padding: 12px 14px;
+.msg-assistant {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  color: #dbeafe;
   border: 1px solid rgba(255,255,255,0.03);
-  color: #e6edf3;
-  outline: none;
 }
 
-/* Placeholder color */
-.chat-input::placeholder { color: rgba(230,237,243,0.5); }
-
-/* send button */
-.send-btn {
-  background: linear-gradient(180deg, var(--accent-600), var(--accent-500));
-  color: white;
-  border-radius: 12px;
-  padding: 10px 18px;
-  box-shadow: 0 10px 30px rgba(79,70,229,0.16);
-  border: none;
-  cursor: pointer;
-}
-
-/* chips */
-.chip {
+/* small chips container */
+.quick-chips button {
   background: rgba(255,255,255,0.02);
-  color: rgba(230,237,243,0.9);
-  border-radius: 999px;
-  padding: 8px 12px;
   border: 1px solid rgba(255,255,255,0.03);
-  font-size: 0.85rem;
+  color: var(--muted);
 }
 
-/* small meta text */
-.msg-meta { font-size: 11px; color: rgba(230,237,243,0.55); }
+/* small helper to make large rounded search input look like glass */
+.input-glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+}
 
-/* subtle scrollbar */
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.03); border-radius: 999px; }
-*::-webkit-scrollbar-track { background: transparent; }
+/* make chat container scrollbar slim and subtle */
+::-webkit-scrollbar { height: 10px; width: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.04); border-radius: 999px; }
 
-/* responsive */
+/* responsive tweaks */
 @media (max-width: 640px) {
-  .app-card { border-radius: 14px; }
-  .msg-assistant, .msg-user { padding: 12px; font-size: 15px; }
+  .header-title { font-size: 1.05rem; }
+  .header-sub { font-size: 0.82rem; }
 }
