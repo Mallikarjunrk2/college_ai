@@ -1,12 +1,94 @@
+/* styles/globals.css */
+
+/* Import a clean variable font (Inter) from Google Fonts quickly.
+   If you prefer to use a local font or different Google font, replace this import.
+*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* optional global resets */
+/* CSS variables for brand */
+:root{
+  --brand-500: #6d28d9;   /* indigo / purple */
+  --brand-600: #5b21b6;
+  --muted-600: #6b7280;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --assistant-bubble: #eef2ff; /* very light indigo */
+  --assistant-text: #111827;
+  --user-bubble: #4f46e5; /* deep indigo */
+  --user-text: #fff;
+  --radius-lg: 18px;
+}
+
+/* Base typographic tweaks */
 html, body, #__next {
   height: 100%;
 }
 body {
+  @apply bg-gradient-to-b from-gray-50 to-gray-100;
   margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #111827;
+}
+
+/* Small utilities for the chat card */
+.chat-card {
+  border-radius: var(--radius-lg);
+  background: var(--card);
+}
+
+/* message bubble helpers */
+.msg-assistant {
+  background: var(--assistant-bubble);
+  color: var(--assistant-text);
+  border-radius: 14px;
+}
+
+.msg-user {
+  background: var(--user-bubble);
+  color: var(--user-text);
+  border-radius: 14px;
+}
+
+/* better word-wrap inside bubbles */
+.prose {
+  word-break: break-word;
+}
+
+/* subtle shadow for card */
+.card-shadow {
+  box-shadow: 0 10px 30px rgba(17,24,39,0.06);
+}
+
+/* input focus */
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.08);
+}
+
+/* scrollbar for the chat area */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.08);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.12); }
+
+/* small chips */
+.chip {
+  @apply text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50;
+}
+
+/* responsive tweaks */
+@media (max-width: 640px) {
+  .chat-card { border-radius: 12px; }
+  .msg-assistant, .msg-user { border-radius: 12px; }
 }
