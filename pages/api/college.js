@@ -1,201 +1,269 @@
 // pages/api/college.js
-// Universal intent router: faculty, placements, faq, and DB-first fallback
 import supabase from "../../lib/supabase";
 
-const norm = (s = "") => String(s || "").trim().toLowerCase();
+/**
+ * college.js - DB-first intent router for CollegeGPT
+ *
+ * Behavior:
+ *  - Try to answer from Supabase (placements, faculty, college_info)
+ *  - If no DB answer -> return { reply: "" } so frontend will fall back to LLM (/api/chat)
+ *
+ * Required tables (recommended):
+ *  - placements  (columns: year, company_name, offers, salary_lpa, ...)
+ *  - faculty_list (columns: id, name, designation, department, email_official, email_other, mobile, notes, courses_taught)
+ *  - college_info (single row preferred: name, address, phone, email, website, established, affiliation, approved_by, placements_summary)
+ *
+ */
 
-function looksCollegeRelated(q = "") {
-  return /college|faculty|placement|placements|fees|admission|principal|department|campus|hostel|staff|professor|teacher|email|phone|contact|placements?/.test(q);
+const TABLE_PLACEMENTS = "placements";
+const TABLE_FACULTY = "faculty_list";
+const TABLE_COLLEGE = "college_info";
+
+function parseYear(q) {
+  if (!q) return null;
+  const r = q.match(/(20\d{2})\s*[-–]\s*(\d{2,4})/);
+  if (r) {
+    // return as "2024-25" if second part is two digits, else keep as provided
+    const a = r[1];
+    const b = r[2].length === 2 ? r[2] : String(r[2]).slice(-2);
+    return `${a}-${b}`;
+  }
+  const single = q.match(/\b(20\d{2})\b/);
+  if (single) {
+    const start = Number(single[1]);
+    const end = String((start + 1) % 100).padStart(2, "0");
+    return `${start}-${end}`;
+  }
+  return null;
 }
 
-// Extract department token (extend synonyms as needed)
-function extractDepartment(q = "") {
-  const m = q.match(/\b(computer science|computer|cs|cse|mechanical|civil|electrical|eee|ece|electronics|management|mba|applied sciences|civil engineering|mechanical engineering)\b/i);
-  if (!m) return null;
-  const found = m[0].toLowerCase();
-  if (/computer/.test(found)) return "cs";
-  if (/cse/.test(found)) return "cs";
-  return found.replace(/\s+engineering$/, "").trim();
+function normalize(s = "") {
+  return String(s || "").toLowerCase();
 }
 
-// Try to extract a name from patterns like "email of Ramesh", "who is Ramesh"
-function extractName(q = "") {
-  // Prefer "of NAME" or "is NAME" patterns
-  let m = q.match(/\b(?:of|is|named|for)\s+([A-Za-z][A-Za-z.'`-]+(?:\s+[A-Za-z][A-Za-z.'`-]+)?)\b/);
+function detectIntent(q) {
+  if (!q) return null;
+  if (/(highest|max|top).*(package|salary|lpa)/i.test(q)) return "highest";
+  if (/(placements?|placement|package|offers?|recruiters?)/i.test(q)) return "placements";
+  if (/(faculty|profess|lecturer|hod|head of department|staff)/i.test(q)) return "faculty";
+  if (/(address|location|where|located)/i.test(q)) return "college_info";
+  if (/(affiliat|approved|aicte|vtU|university)/i.test(q)) return "college_info";
+  if (/(offers? from|company|how many offer|made .* offers)/i.test(q)) return "company_offers";
+  if (/(semester|subjects|syllabus|curriculum|sem\s*\d)/i.test(q)) return "curriculum";
+  return null;
+}
+
+function extractCompany(original) {
+  if (!original) return null;
+  const m = original.match(/\b(?:by|from|at)\s+([a-z0-9 .&+\-()\/']{2,})/i);
   if (m) return m[1].trim();
-  // Capitalized name heuristic
-  m = q.match(/\b([A-Z][a-z]{2,})(?:\s+[A-Z][a-z]{2,})?\b/);
-  if (m) return m[0];
-  // fallback: last non-stopword token
-  const tokens = q.split(/\W+/).filter(Boolean);
-  const stops = new Set(["the","a","an","in","on","at","of","for","and","or","with","to","is","are","was","were","by","faculty","list"]);
-  for (let i = tokens.length - 1; i >= 0; i--) {
-    const t = tokens[i].toLowerCase();
-    if (!stops.has(t) && t.length > 1) return tokens[i];
-  }
-  return null;
+  const m2 = original.match(/offers?\s+(?:from|by|at)?\s*([a-z0-9 .&+\-()\/']{2,})/i);
+  return m2 ? m2[1].trim() : null;
 }
-
-function wantsField(q = "") {
-  if (/\bemail\b/.test(q)) return "email";
-  if (/\bphone|mobile|contact\b/.test(q)) return "phone";
-  if (/\bdepartment|dept\b/.test(q)) return "department";
-  return null;
-}
-
-async function queryFaculty({ dept, name }) {
-  let q = supabase.from("faculty_list").select("id,name,department,phone,email");
-  if (dept) q = q.ilike("department", `%${dept}%`);
-  if (name) q = q.ilike("name", `%${name}%`);
-  const { data, error } = await q;
-  if (error) throw error;
-  return data || [];
-}
-
-async function queryPlacements({ year, intent, company }) {
-  const TABLE = "Collage_placements";
-  if (intent === "highest") {
-    const { data, error } = await supabase.from(TABLE).select("company_name,salary_lpa").eq("year", year).order("salary_lpa", { ascending: false }).limit(1);
-    if (error) throw error;
-    return data || [];
-  }
-  if (intent === "company_offers" && company) {
-    const { data, error } = await supabase.from(TABLE).select("company_name,offers").ilike("company_name", `%${company}%`).eq("year", year);
-    if (error) throw error;
-    return data || [];
-  }
-  if (intent === "summary" || true) {
-    const { data, error } = await supabase.from(TABLE).select("company_name,offers,salary_lpa").eq("year", year);
-    if (error) throw error;
-    return data || [];
-  }
-}
-
-// safe number parse
-const safeNum = (v) => {
-  const n = Number(String(v || "").replace(/[^\d.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-};
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
-  const original = (req.body?.question || "").trim();
-  const q = norm(original);
 
-  // If not college related, return empty so frontend falls back to AI
-  if (!looksCollegeRelated(q)) return res.status(200).json({ reply: "" });
+  const original = (req.body?.question || "").trim();
+  const q = normalize(original);
 
   try {
-    // ---------- FACULTY INTENT ----------
-    if (/\bfaculty|staff|professor|teacher|lecturer\b/.test(q)) {
-      const dept = extractDepartment(original);
-      const name = extractName(original);
-      const field = wantsField(q);
-
-      const rows = await queryFaculty({ dept, name });
-
-      if (!rows || rows.length === 0) return res.status(200).json({ reply: "" }); // fallback to AI
-
-      // If user asked for a single field like email/phone for a person
-      if (field) {
-        // prefer exact name match if multiple, else first
-        let match = rows.find(r => name && r.name && r.name.toLowerCase().includes((name || "").toLowerCase())) || rows[0];
-        const val = match ? match[field] : null;
-        if (!val) return res.status(200).json({ reply: "" });
-        const label = field === "email" ? "Email" : "Phone";
-        return res.status(200).json({ reply: `**${match.name}** — ${label}: ${val}` });
-      }
-
-      // If user asked for list (department or all)
-      const lines = rows.map(r => {
-        const deptText = r.department ? `Dept: ${r.department}` : "";
-        const phoneText = r.phone ? `, Phone: ${r.phone}` : "";
-        const emailText = r.email ? `, Email: ${r.email}` : "";
-        return `- **${r.name}** — ${deptText}${phoneText}${emailText}`;
-      });
-      const header = dept ? `Faculty list — ${dept.toUpperCase()}` : `Faculty list`;
-      return res.status(200).json({ reply: `**${header}**\n\n${lines.join("\n")}` });
-    }
-
-    // ---------- PLACEMENT INTENT ----------
-    if (/\bplacement|placements|package|offers|recruiter|company\b/.test(q)) {
-      // parse year utils
-      const parseYear = (txt) => {
-        const range = txt.match(/(20\d{2})\s*-\s*(\d{2})/);
-        if (range) return `${range[1]}-${range[2]}`;
-        const single = txt.match(/\b(20\d{2})\b/);
-        if (single) {
-          const start = Number(single[1]);
-          const end = String((start + 1) % 100).padStart(2, "0");
-          return `${start}-${end}`;
+    // 1) college info (address, phone, established, affiliation)
+    if (detectIntent(q) === "college_info" || /^(what is|who is|tell me).*(hsit|hirasugar)/i.test(original)) {
+      // try to fetch one row from college_info
+      try {
+        const { data: collegeRows, error: cErr } = await supabase.from(TABLE_COLLEGE).select("*").limit(1);
+        if (cErr) throw cErr;
+        const info = collegeRows?.[0];
+        if (info) {
+          // answer specific asks
+          if (q.includes("address") || q.includes("location") || q.includes("where")) {
+            const reply = `${info.name || "HSIT"} — ${info.address || "Nidasoshi, Belagavi District, Karnataka"}. Phone: ${info.phone || "N/A"}.`;
+            return res.status(200).json({ reply });
+          }
+          if (q.includes("establish") || q.includes("founded") || q.includes("established")) {
+            return res.status(200).json({ reply: `${info.name || "HSIT"} was established in ${info.established || "N/A"}.` });
+          }
+          if (q.includes("affiliat") || q.includes("aicte") || q.includes("approved")) {
+            return res.status(200).json({ reply: `Affiliation: ${info.affiliation || "N/A"}. Approved by: ${info.approved_by || "N/A"}.` });
+          }
+          // generic college info
+          const generic = `${info.name || "HSIT"} — ${info.address || "Nidasoshi, Belagavi"}. Phone: ${info.phone || "N/A"}. Website: ${info.website || "N/A"}.`;
+          return res.status(200).json({ reply: generic });
         }
-        return null;
-      };
-      const detectIntent = (txt) => {
-        if (/(highest|max|top).*(package|salary|lpa)/.test(txt)) return "highest";
-        if (/offers?/.test(txt)) return "company_offers";
-        if (/(list|show|which|visited|recruiters|placements?)/.test(txt)) return "summary";
-        return null;
-      };
-
-      let year = parseYear(original);
-      const intent = detectIntent(original);
-
-      // if last year or no year, pick latest from DB
-      if (/\b(last year|previous year|last academic year)\b/.test(q) || !year) {
-        const { data: latest, error } = await supabase.from("Collage_placements").select("year").order("year", { ascending: false }).limit(1);
-        if (!error && latest?.length) year = latest[0].year;
+      } catch (e) {
+        console.error("college_info error:", e);
+        // fallback to empty -> LLM
+        return res.status(200).json({ reply: "" });
       }
-      if (!year) year = "2024-25";
-
-      // company extraction for offers
-      const company = q.match(/\b(?:from|at|by)\s+([a-z0-9 .&+\-()\/']+)/i)?.[1] || null;
-
-      const rows = await queryPlacements({ year, intent, company });
-
-      if (!rows || rows.length === 0) return res.status(200).json({ reply: "" });
-
-      if (intent === "highest") {
-        const r = rows[0];
-        return res.status(200).json({ reply: `Highest package in ${year} was ${r.salary_lpa} LPA at ${r.company_name}.` });
-      }
-
-      if (intent === "company_offers" && rows.length) {
-        const total = rows.reduce((s, r) => s + safeNum(r.offers), 0);
-        return res.status(200).json({ reply: `${rows[0].company_name} made ${total} offer(s) in ${year}.` });
-      }
-
-      // summary
-      const totalOffers = rows.reduce((s, r) => s + safeNum(r.offers), 0);
-      const highest = Math.max(...rows.map(r => safeNum(r.salary_lpa || 0)));
-      const lines = rows.map(r => `${r.company_name} - ${r.offers} offers, Package: ${r.salary_lpa} LPA`);
-      return res.status(200).json({ reply: `Placements for ${year}: ${lines.join(", ")}. Total offers: ${totalOffers}. Highest: ${highest} LPA.` });
     }
 
-    // ---------- FAQ TABLE (simple best word-match) ----------
-    {
-      const { data: faqData } = await supabase.from("college_faq").select("question,answer");
-      if (faqData && faqData.length) {
-        const qWords = q.split(/\W+/).filter(Boolean);
-        let best = null;
-        let bestScore = 0;
-        for (const row of faqData) {
-          const rnorm = norm(row.question);
-          let score = 0;
-          for (const w of qWords) if (rnorm.includes(w)) score++;
-          if (score > bestScore) {
-            bestScore = score;
-            best = row;
+    // 2) Placements-related
+    const year = parseYear(q);
+    const intent = detectIntent(q);
+
+    if (intent === "placements" || intent === "highest") {
+      // prefer DB placements table
+      try {
+        const fetchYear = year || undefined;
+        if (intent === "highest") {
+          const { data, error } = await supabase
+            .from(TABLE_PLACEMENTS)
+            .select("company_name,salary_lpa,year")
+            .eq("year", fetchYear)
+            .order("salary_lpa", { ascending: false })
+            .limit(1);
+          if (error) throw error;
+          if (data?.length) {
+            const r = data[0];
+            return res.status(200).json({ reply: `Highest package in ${r.year || fetchYear} was ${r.salary_lpa} LPA at ${r.company_name}.` });
+          }
+          return res.status(200).json({ reply: "" });
+        }
+
+        // general placements summary for a year
+        const { data, error } = await supabase
+          .from(TABLE_PLACEMENTS)
+          .select("company_name,offers,salary_lpa,year")
+          .maybeSingle()
+          .eq("year", fetchYear || undefined);
+
+        // .maybeSingle() above will not work as intended for full lists; instead do a regular select
+        if (year) {
+          const { data: rowsByYear, error: yrErr } = await supabase
+            .from(TABLE_PLACEMENTS)
+            .select("company_name,offers,salary_lpa")
+            .eq("year", year);
+          if (yrErr) throw yrErr;
+          if (rowsByYear?.length) {
+            const totalOffers = rowsByYear.reduce((s, r) => s + Number(r.offers || 0), 0);
+            const highest = Math.max(...rowsByYear.map(r => Number(r.salary_lpa || 0)));
+            const lines = rowsByYear.map(r => `${r.company_name} - ${r.offers} offers, Package: ${r.salary_lpa} LPA`).join(", ");
+            return res.status(200).json({ reply: `Placements for ${year}: ${lines}. Total offers: ${totalOffers}. Highest: ${highest} LPA.` });
+          }
+          return res.status(200).json({ reply: "" });
+        }
+
+        // if no year, return placements_summary from college_info if present
+        const { data: clRows, error: clErr } = await supabase.from(TABLE_COLLEGE).select("placements_summary").limit(1);
+        if (clErr) throw clErr;
+        const summary = clRows?.[0]?.placements_summary;
+        if (summary) return res.status(200).json({ reply: summary });
+      } catch (e) {
+        console.error("placements error:", e);
+        return res.status(200).json({ reply: "" });
+      }
+    }
+
+    // 3) Company offers (simple)
+    if (/offers?/.test(q) && /(from|by|at)/.test(q)) {
+      const company = extractCompany(original);
+      if (company) {
+        try {
+          const { data, error } = await supabase
+            .from(TABLE_PLACEMENTS)
+            .select("company_name,offers,year")
+            .ilike("company_name", `%${company}%`)
+            .order("year", { ascending: false });
+          if (error) throw error;
+          if (data?.length) {
+            const total = data.reduce((s, r) => s + Number(r.offers || 0), 0);
+            return res.status(200).json({ reply: `${data[0].company_name} made ${total} offer(s) (latest year: ${data[0].year}).` });
+          }
+        } catch (e) {
+          console.error("company_offers error:", e);
+        }
+      }
+      return res.status(200).json({ reply: "" });
+    }
+
+    // 4) Faculty handling: department list, by-department, by-name or email lookup
+    if (intent === "faculty") {
+      try {
+        // department-specific match first
+        // check common abbreviations and department names
+        const deptNames = ["computer science", "computer science and engineering", "cse", "electronics", "ece", "mechanical", "me", "civil", "ce", "eee", "electrical"];
+        const deptFound = deptNames.find(d => q.includes(d));
+        if (deptFound) {
+          // query faculty table by department partial match
+          const { data, error } = await supabase
+            .from(TABLE_FACULTY)
+            .select("name,designation,department,email_official,email_other,mobile,notes")
+            .ilike("department", `%${deptFound}%`)
+            .order("name", { ascending: true });
+          if (error) throw error;
+          if (data?.length) {
+            const lines = data.map(r => `${r.name} — ${r.designation}${r.email_official ? `, ${r.email_official}` : ""}`);
+            return res.status(200).json({ reply: `Faculty for ${deptFound}:\n${lines.join("\n")}` });
+          }
+          return res.status(200).json({ reply: "" });
+        }
+
+        // name lookup: try to find a person name within the question
+        // naive approach: search each faculty name tokens
+        const { data: allFaculty, error: fErr } = await supabase.from(TABLE_FACULTY).select("*").limit(200);
+        if (fErr) throw fErr;
+
+        if (allFaculty?.length) {
+          const nameHits = allFaculty.filter(f => {
+            const n = normalize(f.name);
+            // if question contains full last name or any token from name
+            const tokens = n.split(/\s+/).filter(Boolean);
+            return tokens.some(t => t.length > 2 && q.includes(t));
+          });
+
+          if (nameHits.length === 1) {
+            const f = nameHits[0];
+            const reply = `${f.name} — ${f.designation} (${f.department}). Email: ${f.email_official || f.email_other || "N/A"}. Phone: ${f.mobile || "N/A"}. ${f.notes || ""}`;
+            return res.status(200).json({ reply });
+          } else if (nameHits.length > 1) {
+            const lines = nameHits.map(f => `${f.name} — ${f.designation} (${f.department})`);
+            return res.status(200).json({ reply: `Found multiple matches:\n${lines.join("\n")}` });
           }
         }
-        if (best && bestScore > 0) return res.status(200).json({ reply: best.answer });
+
+        // fallback: return a short faculty overview
+        const { data: overview, error: ovErr } = await supabase
+          .from(TABLE_FACULTY)
+          .select("name,designation,department")
+          .limit(50);
+        if (ovErr) throw ovErr;
+        if (overview?.length) {
+          const lines = overview.map(r => `${r.name} — ${r.designation} (${r.department})`);
+          return res.status(200).json({ reply: `Faculty overview:\n${lines.join("\n")}` });
+        }
+      } catch (e) {
+        console.error("faculty handler error:", e);
+        return res.status(200).json({ reply: "" });
       }
     }
 
-    // nothing matched in DB => tell frontend to fallback to AI
+    // 5) Curriculum / semester queries (if you add a curriculum table)
+    if (intent === "curriculum") {
+      try {
+        // try a curriculum table: "curriculum" or "syllabus"
+        const semMatch = q.match(/sem(?:ester)?\s*(\d+)/) || q.match(/\bsem\s*(\d+)/) || q.match(/semester\s*(\d+)/);
+        if (semMatch) {
+          const sem = Number(semMatch[1]);
+          const { data, error } = await supabase.from("curriculum").select("sem,subjects,year").eq("sem", sem).limit(50);
+          if (error) throw error;
+          if (data?.length) {
+            const lines = data.map(r => (r.subjects && Array.isArray(r.subjects) ? r.subjects.join(", ") : r.subjects || r.name));
+            return res.status(200).json({ reply: `Subjects for semester ${sem}:\n${lines.join("\n")}` });
+          }
+          return res.status(200).json({ reply: "" });
+        }
+      } catch (e) {
+        console.error("curriculum error:", e);
+        return res.status(200).json({ reply: "" });
+      }
+    }
+
+    // Nothing matched -> let frontend fallback to LLM
     return res.status(200).json({ reply: "" });
+
   } catch (e) {
-    console.error("college.js error:", e);
+    console.error("college.js fatal error:", e);
     return res.status(500).json({ message: e.message || "Server error" });
   }
 }
