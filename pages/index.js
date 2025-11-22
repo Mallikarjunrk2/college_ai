@@ -1,137 +1,51 @@
-import { useState, useRef, useEffect } from "react";
-
-/**
- * Lightweight safe Markdown -> HTML converter (no external deps).
- * - Escapes HTML first to avoid XSS.
- * - Supports: headings (# ..), bold **text**, italic *text*, inline code `code`,
- *   blockquotes (lines starting with >), unordered lists (- or *), links [text](url),
- *   and preserves paragraphs/line breaks.
- */
-function escapeHtml(str = "") {
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function renderMarkdownToHtml(md = "") {
-  // Normalize line endings
-  const text = String(md || "").replace(/\r\n/g, "\n");
-
-  // Escape raw HTML first
-  let out = escapeHtml(text);
-
-  // Inline code: `code`
-  out = out.replace(/`([^`]+)`/g, (_, code) => `<code>${code}</code>`);
-
-  // Bold: **text**
-  out = out.replace(/\*\*(.+?)\*\*/g, (_, b) => `<strong>${b}</strong>`);
-
-  // Italic: *text* (avoid conflicting with bold which is already handled)
-  out = out.replace(/(^|[^*])\*([^*][^*]*?)\*([^*]|$)/g, (_, a, b, c) => `${a}<em>${b}</em>${c}`);
-
-  // Links: [text](url)
-  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t, u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${t}</a>`);
-
-  // Headings: ###, ##, #
-  out = out.replace(/^###\s*(.+)$/gm, "<h3>$1</h3>");
-  out = out.replace(/^##\s*(.+)$/gm, "<h2>$1</h2>");
-  out = out.replace(/^#\s*(.+)$/gm, "<h1>$1</h1>");
-
-  // Blockquote lines: starting with >
-  out = out.replace(/^\>\s?(.*)$/gm, "<blockquote>$1</blockquote>");
-
-  // Unordered lists: lines starting with - or *
-  // Convert consecutive list lines into <ul>...</ul>
-  out = out.replace(/(^((\s*[-*]\s+.+\n?)+))/gm, (match) => {
-    const items = match
-      .trim()
-      .split(/\n/)
-      .map((r) => r.replace(/^\s*[-*]\s+/, ""))
-      .map((li) => `<li>${li}</li>`)
-      .join("");
-    return `<ul>${items}</ul>\n`;
-  });
-
-  // Paragraphs: split by two newlines; preserve single newlines as <br/>
-  // First, convert two-or-more newlines to paragraph separators
-  const paras = out.split(/\n{2,}/).map((p) => {
-    // turn remaining single newlines into <br/>
-    const withBreaks = p.replace(/\n/g, "<br/>");
-    return `<p>${withBreaks}</p>`;
-  });
-
-  return paras.join("\n");
-}
+// pages/index.js
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
+  // initial messages (assistant welcome kept)
   const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hello! 👋 This is CollegeGPT — developed by HSIT College students. You can ask anything related to our college such as faculty details, fees, admission process, placements, facilities, and even general questions!"
-    }
+    { role: "assistant", content: "Hi 👋 I’m your CollegeGPT (HSIT). Ask anything about the college — placements, faculty, admissions, and more.", meta: { source: "db" } }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // auto-scroll to bottom on new message
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages, loading]);
 
   async function sendMessage() {
     if (!input.trim()) return;
-
-    const question = input;
-    const newMessages = [...messages, { role: "user", content: question }];
+    const question = input.trim();
+    const newMessages = [...messages, { role: "user", content: question, ts: Date.now() }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
 
-    // Custom greeting response (handle simple "hi/hello" locally)
-    const greetings = ["hi", "hello", "hey", "hii", "helo", "hai"];
-    if (greetings.includes(question.toLowerCase().trim())) {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content:
-            "Hello! 👋 This is CollegeGPT — created by HSIT College students. I can help you with anything related to the college: faculty, fees, admissions, placements, campus details, and general questions. Ask me anything!"
-        }
-      ]);
-      setLoading(false);
-      return;
-    }
-
     try {
-      // 1) Try college-specific API (Supabase-backed)
-      const r1 = await fetch("/api/college", {
+      // 1) try local college DB JSON API
+      const r1 = await fetch("/api/college_local", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question })
+        body: JSON.stringify({ question }),
       });
-
-      let collegeReply = "";
-      try {
-        const a1 = await r1.json();
-        collegeReply = a1?.reply || (a1?.ok && a1?.answer) || "";
-      } catch {
-        // ignore parse issues; fallback below
-      }
+      const a1 = await r1.json();
+      const collegeReply = a1?.reply || "";
 
       if (collegeReply) {
-        setMessages([...newMessages, { role: "assistant", content: collegeReply }]);
+        setMessages(prev => [...newMessages, { role: "assistant", content: collegeReply, meta: { source: "db" }, ts: Date.now() }]);
+        setLoading(false);
         return;
       }
 
-      // 2) Fallback to /api/chat (Gemini/OpenAI)
+      // 2) fallback to LLM (your existing /api/chat)
       const r2 = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages })
+        body: JSON.stringify({ messages: newMessages }),
       });
 
       if (!r2.ok) {
@@ -140,75 +54,117 @@ export default function Home() {
           const body = await r2.json();
           if (body?.message) errMsg = body.message;
         } catch {}
-        setMessages([...newMessages, { role: "assistant", content: `❌ ${errMsg}` }]);
+        setMessages(prev => [...newMessages, { role: "assistant", content: `❌ ${errMsg}`, meta: { source: "llm" }, ts: Date.now() }]);
+        setLoading(false);
         return;
       }
-
       const a2 = await r2.json();
       const reply = a2?.reply || "I couldn’t generate a reply 😅";
-      setMessages([...newMessages, { role: "assistant", content: reply }]);
-    } catch {
-      setMessages([...newMessages, { role: "assistant", content: "❌ Network error" }]);
+      setMessages(prev => [...newMessages, { role: "assistant", content: reply, meta: { source: "llm" }, ts: Date.now() }]);
+    } catch (e) {
+      setMessages(prev => [...newMessages, { role: "assistant", content: "❌ Network error", meta: { source: "error" }, ts: Date.now() }]);
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b">
-          <h1 className="text-xl font-semibold text-indigo-600">🎓 College AI Chatbot</h1>
-          <p className="text-sm text-gray-500 mt-1">Ask anything about your college — placements, faculty, exams & more.</p>
-        </div>
+  function prettyTime(ts) {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
 
-        <div
-          ref={scrollRef}
-          className="h-[60vh] overflow-y-auto p-6 space-y-4 bg-white"
-          aria-live="polite"
-        >
-          {messages.map((m, i) => {
-            const isUser = m.role === "user";
-            return (
-              <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[80%] px-4 py-3 rounded-lg ${isUser ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-900"}`}
-                >
-                  {/* Render Markdown -> HTML safely */}
-                  <div
-                    className="text-sm"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(m.content) }}
-                  />
-                  <div className="text-[10px] mt-1 text-opacity-60 text-white/80">
-                    {isUser ? "You" : "AI"}
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-3xl">
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white text-lg font-semibold">🎓</div>
+              <div>
+                <div className="text-lg font-semibold text-indigo-700">CollegeGPT — HSIT</div>
+                <div className="text-sm text-gray-500">Ask anything about the college — placements, faculty, admissions & more</div>
+              </div>
+            </div>
+            <div className="text-sm text-gray-400">Status: <span className="text-green-500">Live</span></div>
+          </div>
+
+          {/* Messages area */}
+          <div ref={scrollRef} className="h-[60vh] md:h-[68vh] overflow-y-auto px-6 py-6 space-y-4 bg-gradient-to-b from-white to-gray-50">
+            {messages.map((m, i) => {
+              const isUser = m.role === "user";
+              return (
+                <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                  <div className={`${isUser ? "items-end text-right" : "items-start text-left"} max-w-[85%]`}>
+                    {/* bubble */}
+                    <div className={`${isUser ? "bg-indigo-600 text-white rounded-tr-2xl rounded-bl-2xl rounded-tl-xl" : "bg-gray-100 text-gray-800 rounded-tl-2xl rounded-br-2xl rounded-tr-xl"} inline-block p-4 whitespace-pre-wrap break-words shadow-sm`}>
+                      {/* content */}
+                      <div className="prose prose-sm max-w-none">
+                        {m.content}
+                      </div>
+                      {/* meta row */}
+                      <div className={`mt-2 text-[11px] ${isUser ? "text-indigo-100/90" : "text-gray-500" } flex items-center gap-2 justify-between`}>
+                        <span>{m.ts ? prettyTime(m.ts) : ""}</span>
+                        <span className="ml-3 px-2 py-0.5 rounded-full text-xs bg-white/10 text-white/90 hidden sm:inline">
+                          {m.meta?.source === "db" ? "DB" : m.meta?.source === "llm" ? "LLM" : m.meta?.source === "error" ? "ERR" : ""}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 text-gray-700 rounded-tl-2xl rounded-br-2xl rounded-tr-xl p-4 animate-pulse w-1/3">
+                  <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                </div>
               </div>
-            );
-          })}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="px-4 py-3 rounded-lg bg-gray-100 text-gray-700">⏳ AI is thinking…</div>
+            )}
+          </div>
+
+          {/* Input bar */}
+          <div className="p-4 border-t bg-white sticky bottom-0">
+            <div className="max-w-full mx-auto flex gap-3 items-center">
+              <input
+                aria-label="Type your question"
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 placeholder-gray-400"
+                placeholder="Type your question… (e.g., placements 2024-25)"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                disabled={loading}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={loading}
+                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 font-medium shadow"
+              >
+                {loading ? "Sending..." : "Send"}
+              </button>
             </div>
-          )}
+
+            {/* small quick chips */}
+            <div className="mt-3 flex gap-2 flex-wrap">
+              {["CSE faculty list", "HSIT address", "placements 2024-25", "Manjaragi email"].map((c) => (
+                <button key={c} onClick={() => { setInput(c); }} className="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100">
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-white flex gap-3 items-center">
-          <input
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question… (e.g., placements 2024-25)"
-            onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage()}
-            disabled={loading}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={loading}
-            className={`px-5 py-2 rounded-lg font-medium text-white ${loading ? "bg-indigo-300 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"}`}
-          >
-            {loading ? "Sending…" : "Send"}
-          </button>
+        {/* footer small */}
+        <div className="mt-4 text-center text-xs text-gray-400">
+          Built with ♥ by HSIT students — data-first answers from local DB
         </div>
       </div>
     </div>
