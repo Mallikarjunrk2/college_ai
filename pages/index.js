@@ -220,7 +220,7 @@ export default function Home() {
 
             {/* Quick chips */}
             <div className="mt-3 flex gap-2 flex-wrap">
-              {["CSE faculty list", "HSIT address", "placements 2024-25", "Manjaragi email"].map(
+              {["CSE faculty list", "HSIT address", "placements 2024-25", "Manjaragi sir email"].map(
                 (c) => (
                   <button
                     key={c}
