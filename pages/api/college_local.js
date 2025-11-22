@@ -2,139 +2,114 @@
 import fs from "fs";
 import path from "path";
 
-function loadLocal() {
+function safeReadJSON(filePath) {
   try {
-    const p = path.join(process.cwd(), "data", "college_local.json");
-    const raw = fs.readFileSync(p, "utf8");
+    const raw = fs.readFileSync(filePath, "utf8");
     return JSON.parse(raw);
   } catch (e) {
-    console.error("loadLocal error:", e?.message || e);
-    return null;
+    console.error("JSON read error:", e);
+    return {};
   }
 }
 
-function normalize(s = "") {
-  return String(s || "").toLowerCase();
-}
-
-function parseYear(q) {
-  if (!q) return null;
-  const r = q.match(/(20\d{2})\s*[-–]\s*(\d{2,4})/);
-  if (r) {
-    const a = r[1];
-    const b = r[2].length === 2 ? r[2] : String(r[2]).slice(-2);
-    return `${a}-${b}`;
-  }
-  const single = q.match(/\b(20\d{2})\b/);
-  if (single) {
-    const start = Number(single[1]);
-    const end = String((start + 1) % 100).padStart(2, "0");
-    return `${start}-${end}`;
-  }
-  return null;
+function findFacultyByName(faculty, name) {
+  const n = name.toLowerCase();
+  return faculty.find(f => (f.name || "").toLowerCase().includes(n));
 }
 
 export default function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
-  const qRaw = (req.body?.question || "").trim();
-  const q = normalize(qRaw);
-  if (!q) return res.status(200).json({ reply: "" });
+  const question = (req.body?.question || "").toString().trim().toLowerCase();
+  if (!question) return res.status(200).json({ reply: "" });
 
-  const data = loadLocal();
-  if (!data) return res.status(500).json({ message: "Local data not found" });
+  const jsonPath = path.join(process.cwd(), "data", "college_local.json");
+  const data = safeReadJSON(jsonPath);
 
-  const college = data.college || {};
-  const faculty = data.faculty || [];
+  const basic = data.basic || {};
   const placements = data.placements || [];
-  const curriculum = data.curriculum || {};
+  const faculty = data.faculty || [];
 
-  // College info
-  if (q.includes("address") || q.includes("where") || q.includes("location")) {
-    const reply = `${college.name || "HSIT"} — ${college.address || "Nidasoshi, Belagavi"}. Phone: ${college.phone || "N/A"}.`;
+  // 1) 'placement' intent (optionally detect year)
+  if (question.includes("placement") || question.includes("placements")) {
+    // attempt to extract year like "2024" or "2024-25"
+    const yearMatch = question.match(/(20\d{2}(?:-\d{2})?)/);
+    const year = yearMatch ? yearMatch[0] : null;
+
+    const list = year ? placements.filter(p => (p.year || "").toString().includes(year)) : placements;
+    if (list.length === 0) return res.status(200).json({ reply: "" });
+
+    // simple summary: list companies and offers (limit to first 10)
+    const lines = list.slice(0, 20).map(p => `${p.company_name} - ${p.offers || 0} offers, Package: ${p.salary_lpa || "N/A"} LPA`);
+    const totalOffers = list.reduce((s, r) => s + Number(r.offers || 0), 0);
+    const highest = Math.max(...list.map(r => Number(r.salary_lpa || 0)));
+    const reply = `Placements${year ? ` for ${year}` : ""}: ${lines.join(", ")}. Total offers: ${totalOffers}. Highest: ${highest || "N/A"} LPA.`;
     return res.status(200).json({ reply });
   }
-  if (q.includes("establish") || q.includes("founded") || q.includes("established")) {
-    return res.status(200).json({ reply: `${college.name || "HSIT"} was established in ${college.established || "N/A"}.` });
-  }
-  if (q.includes("affiliat") || q.includes("aicte") || q.includes("approved")) {
-    return res.status(200).json({ reply: `Affiliation: ${college.affiliation || "N/A"}. Approved by: ${college.approved_by || "N/A"}.` });
-  }
 
-  // Placements
-  if (q.includes("placement") || q.includes("package") || q.includes("lpa")) {
-    const year = parseYear(q);
-    if (year) {
-      const rows = placements.filter(p => p.year === year);
-      if (rows.length) {
-        const totalOffers = rows.reduce((s, r) => s + Number(r.offers || 0), 0);
-        const highest = Math.max(...rows.map(r => Number(r.salary_lpa || 0)));
-        const lines = rows.map(r => `${r.company_name} - ${r.offers} offers, ${r.salary_lpa} LPA`);
-        return res.status(200).json({ reply: `Placements for ${year}: ${lines.join(", ")}. Total offers: ${totalOffers}. Highest: ${highest} LPA.` });
+  // 2) faculty list or department
+  if (question.includes("faculty") || question.includes("professor") || question.includes("staff")) {
+    // check department word e.g., "cse", "computer", "mechanical"
+    const depts = ["computer", "cse", "mechanical", "civil", "ece", "eee", "electrical"];
+    const foundDept = depts.find(d => question.includes(d));
+    if (foundDept) {
+      // match department by substring
+      const deptName = foundDept;
+      const results = faculty.filter(f => (f.department || "").toLowerCase().includes(deptName));
+      if (results.length) {
+        const lines = results.map(r => `${r.name} (${r.designation || "Staff"}) - ${r.email_official || r.email || "N/A"}`);
+        return res.status(200).json({ reply: `Faculty in ${deptName.toUpperCase()}: ${lines.join(", ")}` });
+      } else {
+        return res.status(200).json({ reply: "" });
       }
-      return res.status(200).json({ reply: "" });
-    } else {
-      if (placements.length) {
-        const sample = placements.slice(0, 6).map(r => `${r.company_name} (${r.year}) - ${r.salary_lpa} LPA`);
-        return res.status(200).json({ reply: `Recent placements: ${sample.join(", ")}` });
-      }
-      return res.status(200).json({ reply: "" });
     }
-  }
 
-  // Faculty: department or person lookup
-  if (q.includes("faculty") || q.includes("professor") || q.includes("hod") || q.includes("staff")) {
-    // dept detection
-    const deptCodes = ["cse","ece","me","ce","eee","computer science","computer science and engineering","electronics","mechanical","civil","electrical"];
-    const deptFound = deptCodes.find(d => q.includes(d));
-    if (deptFound) {
-      const rows = faculty.filter(f => (f.department || "").toLowerCase().includes(deptFound));
-      if (rows.length) {
-        const lines = rows.map(r => `${r.name} — ${r.designation}${r.email_official ? `, ${r.email_official}` : ""}`);
-        return res.status(200).json({ reply: `Faculty for ${deptFound}:\n${lines.join("\n")}` });
+    // general faculty list
+    if (question.includes("list") || question.includes("all") || question.includes("show")) {
+      if (faculty.length) {
+        const lines = faculty.slice(0, 30).map(r => `${r.name} - ${r.department || "N/A"} (${r.designation || "Staff"})`);
+        return res.status(200).json({ reply: `Faculty list: ${lines.join(", ")}` });
       }
       return res.status(200).json({ reply: "" });
     }
 
-    // name match - check tokens of each faculty name
-    const nameHits = faculty.filter(f => {
-      const n = (f.name || "").toLowerCase();
-      return q.split(/\s+/).some(tok => tok.length > 2 && n.includes(tok));
-    });
-
-    if (nameHits.length === 1) {
-      const f = nameHits[0];
-      const reply = `${f.name} — ${f.designation} (${f.department}). Email: ${f.email_official || f.email_other || "N/A"}. Phone: ${f.mobile || "N/A"}.`;
-      return res.status(200).json({ reply });
-    } else if (nameHits.length > 1) {
-      const lines = nameHits.map(f => `${f.name} — ${f.designation} (${f.department})`);
-      return res.status(200).json({ reply: `Found multiple matches:\n${lines.join("\n")}` });
-    }
-
-    // default faculty list
-    if (faculty.length) {
-      const list = faculty.slice(0, 50).map(f => `${f.name} — ${f.designation} (${f.department})`).join("\n");
-      return res.status(200).json({ reply: `Faculty overview:\n${list}` });
-    }
-
+    // else unknown faculty intent -> fall back
     return res.status(200).json({ reply: "" });
   }
 
-  // Curriculum (semester)
-  if (q.includes("semester") || q.includes("sem") || q.includes("subject") || q.includes("syllabus")) {
-    // try branch + sem e.g., "CSE semester 1"
-    const branch = Object.keys(curriculum).find(b => q.includes(b.toLowerCase())) || "CSE";
-    const semMatch = q.match(/\b(?:sem(?:ester)?\s*|semester\s*)(\d+)/);
-    if (semMatch) {
-      const semKey = `Semester ${semMatch[1]}`;
-      const subjects = (curriculum[branch] || {})[semKey];
-      if (subjects && subjects.length) {
-        return res.status(200).json({ reply: `Subjects for ${branch} ${semKey}:\n${subjects.join("\n")}` });
+  // 3) lookup by name: email or phone
+  if (question.includes("email") || question.includes("mail") || question.includes("@")) {
+    // try to extract a name from question (simple heuristic: last word(s))
+    const words = question.replace(/[?]/g, "").split(/\s+/);
+    // try last two words as name
+    const nameGuess = words.slice(-2).join(" ");
+    const found = findFacultyByName(faculty, nameGuess) || findFacultyByName(faculty, words.slice(-1).join(" "));
+    if (found) {
+      const email = found.email_official || found.email || found.email_other || "Not available";
+      return res.status(200).json({ reply: `${found.name} — ${email}` });
+    }
+    // try any name present in question by scanning faculty list
+    for (const f of faculty) {
+      if (question.includes((f.name || "").toLowerCase().split(" ")[0])) {
+        const email = f.email_official || f.email || "Not available";
+        return res.status(200).json({ reply: `${f.name} — ${email}` });
       }
     }
     return res.status(200).json({ reply: "" });
   }
 
-  // fallback: empty so frontend can call LLM if it wants
+  // 4) basic info (address, established, contact)
+  if (question.includes("address") || question.includes("location") || question.includes("where")) {
+    if (basic?.address) return res.status(200).json({ reply: basic.address });
+    if (basic?.location) return res.status(200).json({ reply: basic.location });
+    return res.status(200).json({ reply: "" });
+  }
+
+  if (question.includes("established") || question.includes("established in") || question.includes("founded")) {
+    if (basic?.established) return res.status(200).json({ reply: `Established: ${basic.established}` });
+    return res.status(200).json({ reply: "" });
+  }
+
+  // default: nothing matched — let frontend fallback to LLM
   return res.status(200).json({ reply: "" });
 }
