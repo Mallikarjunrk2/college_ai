@@ -1,195 +1,199 @@
-// pages/index.js
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const SUGGESTIONS = [
+  { icon: "🎓", text: "Tell me about CSE placements" },
+  { icon: "👤", text: "Who is the HOD of CSE?" },
+  { icon: "📚", text: "What courses does HSIT offer?" },
+  { icon: "📋", text: "How do I apply for admission?" },
+];
 
 export default function Home() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hi 👋 I’m your CollegeGPT (HSIT). Ask anything about the college , placements, faculty, admissions, and more.",
-      meta: { source: "db" },
-      ts: Date.now(),
-    },
-  ]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
+  const endRef = useRef();
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  async function sendMessage() {
-    if (!input.trim()) return;
-    const question = input.trim();
-    const newMessages = [...messages, { role: "user", content: question, ts: Date.now() }];
-    setMessages(newMessages);
-    setInput("");
+  async function send(text) {
+    const question = (text || q).trim();
+    if (!question) return;
+
+    const userMsg = {
+      id: Date.now(),
+      role: "user",
+      text: question,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setMessages((m) => [...m, userMsg]);
+    setQ("");
     setLoading(true);
 
     try {
-      // 1) try local college JSON / DB endpoint
-      const r1 = await fetch("/api/college_local", {
+      const res = await fetch("/api/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ question }),
       });
 
-      let collegeReply = "";
-      if (r1.ok) {
-        try {
-          const a1 = await r1.json();
-          collegeReply = a1?.reply || "";
-        } catch {}
-      }
+      const json = await res.json();
 
-      if (collegeReply) {
-        setMessages(prev => [
-          ...newMessages,
-          { role: "assistant", content: collegeReply, meta: { source: "db" }, ts: Date.now() },
-        ]);
-        setLoading(false);
-        return;
-      }
+      const botMsg = {
+        id: Date.now() + 1,
+        role: "bot",
+        text: json.answer,
+        source: json.source,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
 
-      // 2) fallback to LLM (your existing /api/chat)
-      const r2 = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
-      });
-
-      if (!r2.ok) {
-        let errMsg = `Server error (${r2.status})`;
-        try {
-          const b = await r2.json();
-          if (b?.message) errMsg = b.message;
-        } catch {}
-        setMessages(prev => [
-          ...newMessages,
-          { role: "assistant", content: `❌ ${errMsg}`, meta: { source: "llm" }, ts: Date.now() },
-        ]);
-        setLoading(false);
-        return;
-      }
-
-      const a2 = await r2.json();
-      const reply = a2?.reply || "I couldn’t generate a reply 😅";
-      setMessages(prev => [
-        ...newMessages,
-        { role: "assistant", content: reply, meta: { source: "llm" }, ts: Date.now() },
-      ]);
-    } catch (e) {
-      setMessages(prev => [
-        ...newMessages,
-        { role: "assistant", content: "❌ Network error", meta: { source: "error" }, ts: Date.now() },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function prettyTime(ts) {
-    try {
-      const d = new Date(ts);
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setMessages((m) => [...m, botMsg]);
     } catch {
-      return "";
+      setMessages((m) => [
+        ...m,
+        {
+          id: Date.now(),
+          role: "bot",
+          text: "⚠️ Error contacting API. Please try again.",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
     }
+
+    setLoading(false);
   }
+
+  const isEmpty = messages.length === 0 && !loading;
 
   return (
-    <div className="min-h-screen flex items-start justify-center py-8 px-4">
-      <div className="w-full max-w-3xl">
-        {/* Header card (dark glass) */}
-        <div className="bg-glass card-glow rounded-2xl p-5 flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(180deg,#5b21b6,#4f46e5)" }}>
-              <span style={{ fontSize: 22 }}>🎓</span>
-            </div>
-            <div>
-              <div className="text-2xl font-semibold header-title" style={{ color: "#e8eefb" }}>CollegeGPT — HSIT</div>
-              <div className="text-sm header-sub" style={{ color: "rgba(255,255,255,0.65)" }}>
-                Ask anything about the college — placements, faculty, admissions & more
-              </div>
-            </div>
-          </div>
-          <div className="text-sm" style={{ color: "#10b981" }}>
-            Status: <span style={{ color: "#34d399", fontWeight: 600 }}>Live</span>
-          </div>
-        </div>
+    <div className="container min-h-screen flex justify-center p-4 sm:p-6">
+      <div className="w-full max-w-3xl flex flex-col">
 
-        {/* Chat container */}
-        <div className="bg-glass rounded-2xl p-4 overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.03)" }}>
-          <div ref={scrollRef} className="h-[62vh] overflow-y-auto px-3 py-4 space-y-4">
-            {messages.map((m, i) => {
-              const isUser = m.role === "user";
-              return (
-                <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`${isUser ? "items-end text-right" : "items-start text-left"} max-w-[85%]`}>
-                    <div className={`${isUser ? "msg-user" : "msg-assistant"} inline-block p-4 rounded-2xl shadow-sm whitespace-pre-wrap break-words`}>
-                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5, fontSize: 15 }}>
-                        {m.content}
-                      </div>
-                      <div className="mt-2 text-[11px] flex items-center justify-between" style={{ color: isUser ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.6)" }}>
-                        <span>{m.ts ? prettyTime(m.ts) : ""}</span>
-                        <span className="ml-2 text-xs" style={{ background: "rgba(255,255,255,0.02)", padding: "2px 8px", borderRadius: 999 }}>
-                          {m.meta?.source === "db" ? "DB" : m.meta?.source === "llm" ? "LLM" : m.meta?.source === "error" ? "ERR" : ""}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {loading && (
-              <div className="flex justify-start">
-                <div className="msg-assistant inline-block p-4 rounded-2xl w-1/3 animate-pulse">
-                  <div style={{ height: 10, background: "rgba(255,255,255,0.03)", borderRadius: 6, marginBottom: 8 }} />
-                  <div style={{ height: 10, background: "rgba(255,255,255,0.02)", borderRadius: 6, width: "70%" }} />
-                </div>
-              </div>
-            )}
+        {/* ── HEADER ── */}
+        <header className="flex items-center gap-3 mb-5 pb-4 border-b border-orange-100">
+          <div className="logo-icon">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l1.5 4.5H18l-3.75 2.7 1.5 4.5L12 11.1l-3.75 2.6 1.5-4.5L6 6.5h4.5z"/>
+              <circle cx="12" cy="17" r="3" opacity=".5"/>
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold leading-tight" style={{ fontFamily: 'Sora, sans-serif' }}>
+              HSIT <span className="text-orange-500">GPT</span>
+            </h1>
+            <p className="muted">Ask about faculty, placements, admissions.</p>
           </div>
 
-          {/* Input area */}
-          <div className="mt-4 bg-transparent pt-3 border-t border-white/5">
-            <div className="flex gap-3 items-center">
-              <input
-                aria-label="Type your question"
-                className="input-glass rounded-xl flex-1 px-4 py-3 text-white placeholder:text-gray-300"
-                placeholder="Type your question… (e.g., placements 2024-25)"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                disabled={loading}
-                style={{ color: "#eef6ff" }}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={loading}
-                className="btn-accent rounded-xl px-5 py-3 text-white font-medium"
-              >
-                {loading ? "Sending..." : "Send"}
+          <div className="ml-auto">
+            <a href="https://hsit-gpt-hub.vercel.app/#features" target="_blank" rel="noopener noreferrer">
+              <button className="px-4 py-2 rounded-full text-white text-sm font-semibold
+                bg-gradient-to-r from-orange-400 to-orange-500
+                hover:opacity-90 transition shadow-sm">
+                How it works?
               </button>
-            </div>
+            </a>
+          </div>
+        </header>
 
-            <div className="mt-3 flex gap-2 flex-wrap quick-chips">
-              {["CSE faculty list", "HSIT address", "placements 2024-25"].map((c) => (
-                <button key={c} onClick={() => setInput(c)} className="px-3 py-1 rounded-full text-sm">
-                  {c}
-                </button>
-              ))}
+        {/* ── CHAT BOX ── */}
+        <div className="chat-container flex-1">
+
+          {/* Empty state */}
+          {isEmpty && (
+            <div className="h-full flex flex-col items-center justify-center gap-5 py-6">
+              <div className="logo-icon w-16 h-16 rounded-2xl" style={{ width: 64, height: 64, borderRadius: 20 }}>
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.091z"/>
+                </svg>
+              </div>
+
+              <div className="text-center">
+                <h2 style={{ fontFamily: 'Sora, sans-serif' }} className="text-xl font-bold text-stone-800">
+                  How can I help you today?
+                </h2>
+                <p className="muted mt-1">Pick a suggestion or type your question below.</p>
+              </div>
+
+              {/* Suggestion chips */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg mt-1">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s.text}
+                    className="chip text-left"
+                    onClick={() => send(s.text)}
+                  >
+                    <span className="text-xl">{s.icon}</span>
+                    <span className="text-sm font-medium text-stone-700">{s.text}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Messages */}
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`flex mb-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div className={`message ${m.role === "user" ? "user-message" : "bot-message"}`}>
+                <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
+
+                {m.source && (
+                  <div className="muted mt-1.5">
+                    {m.source === "supabase" && "📘 Database"}
+                    {m.source === "llm" && "🤖 LLM"}
+                    {m.source === "local-data" && "📂 Local"}
+                  </div>
+                )}
+
+                <div className="muted mt-1">{m.time}</div>
+              </div>
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {loading && (
+            <div className="flex justify-start mb-3">
+              <div className="bot-message message flex items-center gap-1.5">
+                <span className="dot" />
+                <span className="dot" />
+                <span className="dot" />
+              </div>
+            </div>
+          )}
+
+          <div ref={endRef} />
+        </div>
+
+        {/* ── INPUT ── */}
+        <div className="mt-4">
+          <div className="input-container">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !loading && send()}
+              placeholder="Ask anything about your college..."
+              className="input-box"
+            />
+            <button onClick={() => send()} disabled={loading} className="send-button">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+              </svg>
+              {loading ? "..." : "Send"}
+            </button>
           </div>
         </div>
 
-        <div className="mt-4 text-center text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Built with ♥ by HSIT students — data-first answers from local DB
+        {/* ── FOOTER ── */}
+        <div className="mt-5 text-center muted pb-4">
+          ⚠️ HSIT GPT may make mistakes. Always verify important info. Powered by Gemini AI ❤️
         </div>
+
       </div>
     </div>
   );
